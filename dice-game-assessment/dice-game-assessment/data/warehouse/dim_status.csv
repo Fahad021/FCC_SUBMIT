@@ -1,0 +1,4 @@
+status_code,status_desc_en
+COMPLETED,Session completed
+ABORTED,Session aborted
+TIMEOUT,Session timeout

@@ -1,0 +1,97 @@
+ROLE
+You are a Senior Data Engineer acting as an assessment copilot. Work autonomously and return a shippable repository.
+
+OBJECTIVE
+Given the attached Dice Game data model PDF and the raw CSV extracts:
+- Build a lightweight, production-style analytics pipeline (Python/pandas) that produces a star schema (dims + facts) and a few business insights.
+- Include basic automated data quality tests.
+- Package everything as a ready-to-push Git repository with a brief AI-usage note.
+
+INPUTS (FILENAMES IN ./data/raw/)
+- plan.csv
+- plan_payment_frequency.csv
+- status_code.csv                # play_session_status_code lookups
+- channel_code.csv               # play_session_channel_code lookups
+- user.csv
+- user_plan.csv
+- user_payment_detail.csv
+- user_registration.csv
+- user_play_session.csv
+- Dice Game Data Model - Published.pdf (for naming alignment; do not parse programmatically)
+
+DELIVERABLES
+- A repo with folders:
+  data/raw/ (the provided CSVs copied verbatim)
+  data/warehouse/ (ETL outputs as CSVs: dim_*.csv, fact_*.csv, plus revenue_2024_by_subscription.csv)
+  src/dice_dw/etl.py  (ETL logic: dims, facts, revenue calc)
+  src/main.py         (entry point to run the pipeline)
+  tests/test_dw.py    (unittest-based data quality checks)
+  analysis/           (sessions_by_channel.csv, subscription_mix.csv, insights.md, AI_ASSISTED_NOTES.md)
+  README.md           (how to run, model description, assumptions)
+- A zipped archive of the repo ready for GitHub push.
+- AI assistance disclosure note.
+- (Nice-to-have) Draft email text to submit the GitHub link to the reviewer.
+
+CONSTRAINTS & ASSUMPTIONS
+- Use pure pandas; avoid dependencies requiring system-level installs (e.g., pyarrow). Persist outputs as CSV.
+- Handle far-future dates (e.g., 9999-01-01) safely by bounding for any period-based calculations and by using errors='coerce' on parsing.
+- Align names with the published model but keep codes stable:
+  - Map play_session_status_code/channel_code lookups to dim_status/dim_channel with English descriptions.
+  - Preserve the original code values referenced by the facts.
+- Keep everything deterministic and self-contained (no internet calls).
+- Use UTC-aware or naive consistently; here, parse timestamps as pandas timestamps and compute non-negative durations in seconds.
+
+TRANSFORM DESIGN (STAR SCHEMA)
+Dimensions
+- dim_user(user_id, user_registration_id, username, registration_email, first_name, last_name, ip_address, social_media_handle, email)
+- dim_plan(plan_id, payment_frequency_code, payment_frequency_desc_en, cost_amount)
+- dim_channel(channel_code, channel_desc_en)
+- dim_status(status_code, status_desc_en)
+- dim_date(date_key, date, year, quarter, month, day, day_of_week, week_of_year, is_weekend)
+
+Facts
+- fact_play_session(play_session_id, user_id, date_key, start_ts, end_ts, duration_seconds, channel_code, status_code, total_score)
+- fact_user_plan(user_registration_id, payment_detail_id, plan_id, start_date_key, end_date_key, start_date, end_date)
+
+DERIVED METRICS
+- Duration in seconds per session = end_ts - start_ts, coerced ≥ 0.
+- Revenue 2024 estimate:
+  For each user_plan:
+   • Bound active interval to [2024-01-01, 2024-12-31].
+   • cycles_2024:
+       - MONTHLY: count month cycles inclusive of start month.
+       - ANNUALLY: count year cycles inclusive.
+       - ONETIME: 1 if active in 2024 else 0.
+   • revenue_2024 = cycles_2024 × plan.cost_amount.
+  Export: data/warehouse/revenue_2024_by_subscription.csv
+
+DATA QUALITY TESTS (unittest)
+- Keys non-null/unique: plan_id unique in dim_plan.
+- FK coverage: fact_play_session.channel_code ⊆ dim_channel.channel_code.
+- Timestamps parse successfully; duration_seconds ≥ 0.
+- (Optional) Add more FK/type checks if time permits.
+
+INSIGHTS TO PRODUCE
+- Sessions by channel with % share.
+- Subscription mix (ONETIME vs subscription) using plan.payment_frequency_code.
+- Total gross revenue_2024 (sum over revenue_2024_by_subscription.csv).
+- Save tables in analysis/ and a short insights.md summary.
+
+REPO BOILERPLATE
+- README.md with run instructions:
+  python -m src.main
+  python -m unittest discover
+- Clear explanation of star schema, assumptions, and revenue logic.
+- AI_ASSISTED_NOTES.md briefly listing that an AI copilot helped scaffold and speed up authoring.
+
+HANDOFF
+- Zip the entire repo for easy sharing.
+- Provide a short email template to submit the GitHub link.
+
+ACCEPTANCE CRITERIA
+- Re-running the pipeline from a clean checkout reproduces the same outputs in data/warehouse/.
+- Unit tests pass.
+- Insights exist and are consistent with the data.
+- Code is simple, readable, and enterprise-friendly (clear boundaries and naming).
+
+DELIVER THE FULL PACKAGE NOW.
